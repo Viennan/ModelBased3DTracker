@@ -7,7 +7,7 @@ template <typename T>
 struct Viewpoint{
     std::vector<T> data;
     Eigen::Vector3f orientation;
-}
+};
 
 template <typename T>
 class SparseViewpointModel {
@@ -18,6 +18,14 @@ public:
     SparseViewpointModel& operator=(const SparseViewpointModel&) = default;
     SparseViewpointModel& operator=(SparseViewpointModel&&) = default;
     ~SparseViewpointModel() = default;
+
+    Viewpoint<T>& operator[](size_t index) {
+        return viewpoints_[index];
+    }
+
+    const Viewpoint<T>& operator[](size_t index) const {
+        return viewpoints_[index];
+    }
 
     const Viewpoint<T>& GetClosestViewpoint(const Eigen::Transform3fA& body2camera_pose) const {
         // convert to camera to body orientation
