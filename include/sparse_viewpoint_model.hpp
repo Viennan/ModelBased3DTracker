@@ -45,6 +45,6 @@ private:
     std::vector<Viewpoint<T>> viewpoints_;
 };
 
-void GenerateGeodesicPoses(int n_divide, std::vector<Eigen::Transform3fA>& camera2body_poses);
+void GenerateGeodesicPoses(int n_divides, float radius, std::vector<Transform3fA>& camera2body_poses);
 
 }

@@ -3,7 +3,20 @@
 
 #include <Eigen/Dense>
 
-// Commonly used types
-typedef Eigen::Transform<float, 3, Eigen::Affine> Transform3fA;
+namespace mb3t {
+
+    // Commonly used types
+    typedef Eigen::Transform<float, 3, Eigen::Affine> Transform3fA;
+
+    // Commonly used constants
+    constexpr float kPi = 3.1415926535897f;
+
+    // Commonly used structs
+    struct Intrinsics {
+        float fu, fv;
+        float ppu, ppv;
+        int width, height;
+    };
+}
 
 #endif
