@@ -1,7 +1,7 @@
 #include <vector>
 #include <memory>
 #include <Eigen/Dense>
-#include "model.hpp"
+#include "sparse_viewpoint_model.hpp"
 
 namespace mb3t {
 namespace hm {
@@ -53,6 +53,18 @@ namespace hm {
 
         // parameters and functions for sparse viewpoint model
         std::shared_ptr<SparseViewpointModel<ContourPoint>> viewpoint_model_;
+    };
+
+    class SparseViewpointModelBuilder { 
+    public:
+        SparseViewpointModelBuilder() = default;
+        SparseViewpointModelBuilder(const SparseViewpointModelBuilder&) = default;
+        SparseViewpointModelBuilder(SparseViewpointModelBuilder&&) = default;
+        SparseViewpointModelBuilder& operator=(const SparseViewpointModelBuilder&) = default;
+        SparseViewpointModelBuilder& operator=(SparseViewpointModelBuilder&&) = default;
+        ~SparseViewpointModelBuilder() = default;
+
+
     };
 
 }
