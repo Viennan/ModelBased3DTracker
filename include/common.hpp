@@ -17,6 +17,7 @@ namespace mb3t {
         float ppu, ppv;
         int width, height;
     };
+
 }
 
 #endif
