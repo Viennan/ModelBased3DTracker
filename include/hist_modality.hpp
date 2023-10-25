@@ -1,3 +1,6 @@
+#ifndef MB3T_HIST_MODALITY_HPP
+#define MB3T_HIST_MODALITY_HPP
+
 #include <vector>
 #include <memory>
 #include <Eigen/Dense>
@@ -55,17 +58,7 @@ namespace hm {
         std::shared_ptr<SparseViewpointModel<ContourPoint>> viewpoint_model_;
     };
 
-    class SparseViewpointModelBuilder { 
-    public:
-        SparseViewpointModelBuilder() = default;
-        SparseViewpointModelBuilder(const SparseViewpointModelBuilder&) = default;
-        SparseViewpointModelBuilder(SparseViewpointModelBuilder&&) = default;
-        SparseViewpointModelBuilder& operator=(const SparseViewpointModelBuilder&) = default;
-        SparseViewpointModelBuilder& operator=(SparseViewpointModelBuilder&&) = default;
-        ~SparseViewpointModelBuilder() = default;
-
-
-    };
-
 }
 }
+
+#endif

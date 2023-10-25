@@ -1,3 +1,6 @@
+#ifndef MB3T_SPARSE_VIEWPOINT_MODEL_HPP
+#define MB3T_SPARSE_VIEWPOINT_MODEL_HPP
+
 #include <vector>
 #include "common.hpp"
 
@@ -48,3 +51,5 @@ private:
 void GenerateGeodesicPoses(int n_divides, float radius, std::vector<Transform3fA>& camera2body_poses);
 
 }
+
+#endif
