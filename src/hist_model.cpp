@@ -20,7 +20,7 @@ static bool generateValidContours(const cv::Mat &silhouette, std::vector<std::ve
             return false;
         }
     }
-    for (int i=0;i<height;++i) {
+    for (int i=1;i<height-1;++i) {
         if (silhouette.at<uchar>(i, 0) || silhouette.at<uchar>(i, width-1)) {
             CV_LOG_ERROR(nullptr, "Silhouette has non-empty outer border");
             return false;
