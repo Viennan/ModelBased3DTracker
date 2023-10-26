@@ -1,3 +1,4 @@
+#include <random>
 #include <opencv2/core/utils/logger.hpp>
 #include <opencv2/imgproc.hpp>
 #include "hist_model.hpp"
@@ -59,7 +60,61 @@ static bool generateValidContours(const cv::Mat &silhouette, std::vector<std::ve
     return true;
 }
 
+static cv::Point2i sampleContourPointCoordinate(
+    const std::vector<std::vector<cv::Point2i>> &contours, 
+    int total_contour_length_in_pixel, 
+    std::mt19937 &generator) 
+{
+    int idx = int(generator() % total_contour_length_in_pixel);
+    for (auto &contour : contours) {
+    if (idx < contour.size())
+        return contour[idx];
+    else
+        idx -= int(contour.size());
+    }
+    return cv::Point2i();  // Never reached
+}
 
+static bool calculateContourSegment(
+    const std::vector<std::vector<cv::Point2i>> &contours, cv::Point2i &center,
+    std::vector<cv::Point2i> &contour_segment) {
+    for (auto &contour : contours) {
+        if (contour.size() < kContourNormalApproxRadius + 1) {
+            continue;
+        }
+        for (int idx = 0; idx < contour.size(); ++idx) {
+            if (contour.at(idx) == center) {
+                int start_idx = idx - kContourNormalApproxRadius;
+                int end_idx = idx + kContourNormalApproxRadius;
+                if (start_idx < 0) {
+                    contour_segment.insert(end(contour_segment), end(contour) + start_idx, end(contour));
+                    start_idx = 0;
+                }
+                if (end_idx >= int(contour.size())) {
+                    contour_segment.insert(end(contour_segment), begin(contour) + start_idx, end(contour));
+                    start_idx = 0;
+                    end_idx = end_idx - int(contour.size());
+                }
+                contour_segment.insert(end(contour_segment), begin(contour) + start_idx, begin(contour) + end_idx + 1);
+
+                // Check quality of contour segment
+                float segment_distance = std::hypotf(
+                    float(contour_segment.back().x - contour_segment.front().x),
+                    float(contour_segment.back().y - contour_segment.front().y));
+                return segment_distance > float(kContourNormalApproxRadius);
+            }
+        }
+    }
+    CV_LOG_ERROR(nullptr, "Could not find point on contour");
+    return false;
+}
+
+static inline Eigen::Vector2f approximateNormalVector(const std::vector<cv::Point2i> &contour_segment) {
+    return Eigen::Vector2f{
+        -float(contour_segment.back().y - contour_segment.front().y),
+        float(contour_segment.back().x - contour_segment.front().x)
+    }.normalized();
+}
 
 }
 }
