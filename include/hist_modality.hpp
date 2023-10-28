@@ -9,14 +9,13 @@
 namespace mb3t {
 namespace hm {
 
-    constexpr int kMaxNDepthOffsets = 30;
-
     struct ContourPoint {
+        Eigen::Vector3f orientation;
         Eigen::Vector3f center_f_body;
         Eigen::Vector3f normal_f_body;
         float foreground_distance = 0.0f;
         float background_distance = 0.0f;
-        std::array<float, kMaxNDepthOffsets> depth_offsets{};
+        DepthOffsets depth_offsets{};
     };
 
     // A line in 2D
@@ -55,7 +54,7 @@ namespace hm {
         void hist_init();
 
         // parameters and functions for sparse viewpoint model
-        std::shared_ptr<SparseViewpointModel<ContourPoint>> viewpoint_model_;
+        std::vector<ContourPoint> viewpoint_model_;
     };
 
 }

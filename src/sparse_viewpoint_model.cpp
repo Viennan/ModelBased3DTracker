@@ -79,4 +79,55 @@ void GenerateGeodesicPoses(int n_divides, float radius, std::vector<Transform3fA
     }
 }
 
+void CalculateDepthOffsets(
+    const cv::Mat& depth_image, 
+    const cv::Point2i &center,
+    float pixel_to_meter,
+    float max_radius_depth_offset,
+    float stride_depth_offset,
+    DepthOffsets& depth_offsets) 
+{
+    // Precalculate variables in pixel coordinates
+    int n_values = int(max_radius_depth_offset / stride_depth_offset + 1.0f);
+    float stride = stride_depth_offset / pixel_to_meter;
+    float max_diameter = 2.0f * n_values * stride;
+
+    // Precalculate rounded variables to iterate over image
+    int image_stride = int(stride + 1.0f);
+    int n_image_strides = int(max_diameter / image_stride + 1.0f);
+    int image_diameter = n_image_strides * image_stride;
+    int image_radius_minus = image_diameter / 2;
+    int image_radius_plus = image_diameter - image_radius_minus;
+
+    // Calculate limits for iteration
+    int v_min = std::max(center.y - image_radius_minus, 0);
+    int v_max = std::min(center.y + image_radius_plus, depth_image.rows - 1);
+    int u_min = std::max(center.x - image_radius_minus, 0);
+    int u_max = std::min(center.x + image_radius_plus, depth_image.cols - 1);
+
+    // Iterate image to find minimum values corresponding to a certain radius
+    int v, u, i;
+    float distance;
+    const float *ptr_image;
+    DepthOffsets min_abs_depths;
+    min_abs_depths.fill(std::numeric_limits<float>::max());
+    min_abs_depths[0] = depth_image.at<float>(center);
+    for (v = v_min; v <= v_max; v += image_stride) {
+        ptr_image = depth_image.ptr<float>(v);
+        for (u = u_min; u <= u_max; u += image_stride) {
+            distance = std::sqrt(square(u - center.x) + square(v - center.y));
+            i = int(distance / stride);
+            if (i < n_values) min_abs_depths[i] = std::min(min_abs_depths[i], depth_image.at<float>(v, u));
+        }
+    }
+
+    // Accumulate minimum values for circular regions and calculate depth offset
+    float depth_center = depth_image.at<float>(center);
+    depth_offsets[0] = depth_center - min_abs_depths[0];
+    for (size_t i = 1; i < kMaxNDepthOffsets; ++i) {
+        min_abs_depths[i] = std::min(min_abs_depths[i], min_abs_depths[i - 1]);
+        depth_offsets[i] = depth_center - min_abs_depths[i];
+    }
+}
+
 }

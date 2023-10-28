@@ -3,52 +3,37 @@
 
 #include <vector>
 #include "common.hpp"
+#include <opencv2/core.hpp>
 
 namespace mb3t {
 
-template <typename T>
-struct Viewpoint{
-    std::vector<T> data;
-    Eigen::Vector3f orientation;
-};
+constexpr int kMaxNDepthOffsets = 30;
+using DepthOffsets = std::array<float, kMaxNDepthOffsets>;
 
-template <typename T>
-class SparseViewpointModel {
-public:
-    SparseViewpointModel() = default;
-    SparseViewpointModel(const SparseViewpointModel&) = default;
-    SparseViewpointModel(SparseViewpointModel&&) = default;
-    SparseViewpointModel& operator=(const SparseViewpointModel&) = default;
-    SparseViewpointModel& operator=(SparseViewpointModel&&) = default;
-    ~SparseViewpointModel() = default;
-
-    Viewpoint<T>& operator[](size_t index) {
-        return viewpoints_[index];
-    }
-
-    const Viewpoint<T>& operator[](size_t index) const {
-        return viewpoints_[index];
-    }
-
-    const Viewpoint<T>& GetClosestViewpoint(const Eigen::Transform3fA& body2camera_pose) const {
-        // convert to camera to body orientation
-        Eigen::Vector3f orientation{body2camera_pose.rotation().inverse() * body2camera_pose.translation().matrix().normalized()};
-        float closest_dot = -1.0f;
-        size_t index = 0;
-        for (size_t i = 0; i < viewpoints_.size(); ++i) {
-            float dot = orientation.dot(view.orientation);
-            if (dot > closest_dot) {
-                index = i;
-            }
+template<typename Data>
+const Data& GetClosestViewpoint(const Transform3fA& body2camera_pose, const std::vector<Data>& viewpoints) {
+    // convert to camera to body orientation
+    Eigen::Vector3f orientation{body2camera_pose.rotation().inverse() * body2camera_pose.translation().matrix().normalized()};
+    float closest_dot = -1.0f;
+    size_t index = 0;
+    for (size_t i = 0; i < viewpoints.size(); ++i) {
+        float dot = distance(viewpoints[i].orientation, orientation);
+        if (dot > closest_dot) {
+            index = i;
         }
-        return viewpoints_[index];
     }
-
-private:
-    std::vector<Viewpoint<T>> viewpoints_;
-};
+    return viewpoints_[index];
+}
 
 void GenerateGeodesicPoses(int n_divides, float radius, std::vector<Transform3fA>& camera2body_poses);
+
+void CalculateDepthOffsets(
+    const cv::Mat& depth_image, 
+    const cv::Point2i &center,
+    float pixel_to_meter,
+    float max_radius_depth_offset,
+    float stride_depth_offset,
+    DepthOffsets& depth_offsets);
 
 }
 

@@ -116,5 +116,118 @@ static inline Eigen::Vector2f approximateNormalVector(const std::vector<cv::Poin
     }.normalized();
 }
 
+void findClosestContourPoint(
+    const std::vector<std::vector<cv::Point2i>> &contours, float u, float v,
+    int& u_contour, int& v_contour) 
+{
+    float min_distance = std::numeric_limits<float>::max();
+    for (auto &contour : contours) {
+        for (auto &point : contour) {
+            float distance = hypotf(float(point.x) - u, float(point.y) - v);
+            if (distance < min_distance) {
+                u_contour = point.x;
+                v_contour = point.y;
+                min_distance = distance;
+            }
+        }
+    }
+}
+
+static void calculateLineDistances(
+    const cv::Mat &silhouette,
+    const std::vector<std::vector<cv::Point2i>> &contours,
+    const cv::Point2i &center, const Eigen::Vector2f &normal,
+    float pixel_to_meter, float &foreground_distance,
+    float &background_distance) {
+    // Calculate starting positions and steps for both sides of the line
+    float u_out = float(center.x) + 0.5f;
+    float v_out = float(center.y) + 0.5f;
+    float u_in = float(center.x) + 0.5f;
+    float v_in = float(center.y) + 0.5f;
+    float u_step, v_step;
+    if (std::fabs(normal.y()) < std::fabs(normal.x())) {
+        u_step = float(sgn(normal.x()));
+        v_step = normal.y() / abs(normal.x());
+    } else {
+        u_step = normal.x() / abs(normal.y());
+        v_step = float(sgn(normal.y()));
+    }
+
+    // Search for first inwards intersection with contour
+    int u_in_endpoint, v_in_endpoint;
+    while (true) {
+        u_in -= u_step;
+        v_in -= v_step;
+        if (!silhouette.at<uchar>(int(v_in), int(u_in))) {
+            findClosestContourPoint(contours, u_in + u_step - 0.5f, v_in + v_step - 0.5f, u_in_endpoint, v_in_endpoint);
+            foreground_distance = pixel_to_meter * hypotf(float(u_in_endpoint - center.x), float(v_in_endpoint - center.y));
+            break;
+        }
+    }
+
+    // Search for first outwards intersection with contour
+    int w = silhouette.cols;
+    int h = silhouette.rows;
+    int u_out_endpoint, v_out_endpoint;
+    while (true) {
+        u_out += u_step;
+        v_out += v_step;
+        if (int(u_out) < 0 || int(u_out) >= w || int(v_out) < 0 || int(v_out) >= h) {
+            background_distance = std::numeric_limits<float>::max();
+            break;
+        }
+        if (silhouette.at<uchar>(int(v_out), int(u_out))) {
+            findClosestContourPoint(contours, u_out - 0.5f, v_out - 0.5f, u_out_endpoint, v_out_endpoint);
+            background_distance =  pixel_to_meter * hypotf(float(u_out_endpoint - center.x), float(v_out_endpoint - center.y));
+            break;
+        }
+    }
+}
+
+bool ViewpointBuilder::GeneratePointData(const Transform3fA& body2camera, std::vector<ContourPoint>& points) const {
+    // Capture image
+    camera.Capture(body2camera);
+
+    // Generate contour
+    int total_contour_length_in_pixel;
+    std::vector<std::vector<cv::Point2i>> contours;
+    cv::Mat silhouette = camera.Color();
+    if (!generateValidContours(silhouette, contours, total_contour_length_in_pixel))
+        return false;
+
+    // Calculate data for contour points
+    std::mt19937 generator{this->seed};
+    auto intrinsics = camera.Intrinsics();
+    auto depth = camera.Depth();
+    auto camera2body = body2camera.inverse();
+    // Calculate data for contour points
+    for (auto data_point{begin(points)}; data_point != end(points);) {
+        // Randomly sample point on contour and calculate 3D center
+        cv::Point2i center{sampleContourPointCoordinate(contours, total_contour_length_in_pixel, generator)};
+        auto center_f_camera = ReversePinHoleProject(intrinsics, depth.at<float>(center.y, center.x), float(center.x), float(center.y));
+        data_point->center_f_body = camera2body * center_f_camera;
+
+        // Calculate contour segment and approximate normal vector
+        std::vector<cv::Point2i> contour_segment;
+        if (!calculateContourSegment(contours, center, contour_segment)) 
+            continue;
+        Eigen::Vector2f normal{approximateNormalVector(contour_segment)};
+        Eigen::Vector3f normal_f_camera{normal.x(), normal.y(), 0.0f};
+        data_point->normal_f_body = camera2body.rotation() * normal_f_camera;
+
+        // Calculate foreground and background distance
+        float pixel_to_meter = center_f_camera(2) / intrinsics.fu;
+        calculateLineDistances(silhouette, contours, center, normal, pixel_to_meter,
+                                data_point->foreground_distance,
+                                data_point->background_distance);
+        
+        // Calculate depth offsets
+        CalculateDepthOffsets(depth, center, pixel_to_meter, max_radius_depth_offset, stride_depth_offset, data_point->depth_offsets);
+
+        data_point++;
+    }
+    return true;
+}
+
 }
 }

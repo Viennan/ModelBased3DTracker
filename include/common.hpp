@@ -12,12 +12,18 @@ namespace mb3t {
     constexpr float kPi = 3.1415926535897f;
 
     // Commonly used structs
-    struct Intrinsics {
-        float fu, fv;
-        float ppu, ppv;
-        int width, height;
-    };
+    
 
+    // Commonly used mathematical functions
+    template <typename T>
+    inline int sgn(T value) {
+        return (value > T(0)) - (value < T(0));
+    }
+
+    template <typename T>
+    inline T square(T value) {
+        return value * value;
+    }
 }
 
 #endif
