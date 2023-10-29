@@ -13,6 +13,10 @@ struct Intrinsics {
     int width, height;
 };
 
+inline Eigen::Vector2f PinHoleProject(const Intrinsics &intrinsics, const Eigen::Vector3f &point) {
+    return Eigen::Vector2f{intrinsics.fu * point.x() / point.z() + intrinsics.ppu, intrinsics.fv * point.y() / point.z() + intrinsics.ppv};
+}
+
 inline Eigen::Vector3f ReversePinHoleProject(const Intrinsics &intrinsics, float depth, float x, float y) {
     return Eigen::Vector3f{depth * (x - intrinsics.ppu) / intrinsics.fu, depth * (y - intrinsics.ppv) / intrinsics.fv, depth};
 }
@@ -23,6 +27,7 @@ struct Camera {
     std::function<cv::Mat()> Normal;
     std::function<cv::Mat()> Color;
     std::function<const Intrinsics&()> Intrinsics;
+    std::function<std::tuple<Transform3fA, Transform3fA, Transform3fA>()> MVP;
 };
 
 }

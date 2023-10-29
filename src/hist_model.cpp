@@ -184,8 +184,9 @@ static void calculateLineDistances(
     }
 }
 
-bool ViewpointBuilder::GeneratePointData(const Transform3fA& body2camera, std::vector<ContourPoint>& points) const {
+bool ViewpointBuilder::operator()(const Transform3fA& camera2body, std::vector<ContourPoint>& points) const {
     // Capture image
+    auto body2camera = camera2body.inverse();
     camera.Capture(body2camera);
 
     // Generate contour
@@ -199,7 +200,6 @@ bool ViewpointBuilder::GeneratePointData(const Transform3fA& body2camera, std::v
     std::mt19937 generator{this->seed};
     auto intrinsics = camera.Intrinsics();
     auto depth = camera.Depth();
-    auto camera2body = body2camera.inverse();
     // Calculate data for contour points
     for (auto data_point{begin(points)}; data_point != end(points);) {
         // Randomly sample point on contour and calculate 3D center

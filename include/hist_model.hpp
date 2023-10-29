@@ -10,8 +10,10 @@ namespace hm {
 
     class ViewpointBuilder { 
     public:
+        ViewpointBuilder(int seed, float max_radius_depth_offset, float stride_depth_offset, const Camera& camera) : 
+            seed{seed}, max_radius_depth_offset{max_radius_depth_offset}, stride_depth_offset{stride_depth_offset}, camera{camera} {}
 
-        bool GeneratePointData(const Transform3fA& body2camera, std::vector<ContourPoint>& points) const;
+        bool operator()(const Transform3fA& camera2body, std::vector<ContourPoint>& points) const;
 
     private:
         int seed;
@@ -19,7 +21,6 @@ namespace hm {
         float stride_depth_offset;
         Camera camera;
     };
-
 
 }
 }
