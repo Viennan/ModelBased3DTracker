@@ -2,6 +2,57 @@
 
 namespace mb3t {
 namespace hm{
+
+    void Histogram::Normalize() {
+        float sum = 0.0;
+#ifndef _DEBUG
+#pragma omp simd
+#endif
+        for(int i = 0; i < hist_n_bins_cube_; ++i) {
+            sum += hist_[i];
+        }
+
+        if (sum <= 0.0f) {
+            return;
+        }
+
+        float recip = 1.0f / sum;
+#ifndef _DEBUG
+#pragma omp simd
+#endif
+        for(int i=0; i < hist_n_bins_cube_; ++i) {
+            hist_[i] *= recip;
+        }
+    }
+
+    void Histogram::MergeUnnormalized(const Histogram& temp, float learning_rate) {
+        if (learning_rate == 1.0f) {
+            *this = temp;
+            this->Normalize();
+            return;
+        }
+
+        float sum = 0.0f;
+#ifndef _DEBUG
+#pragma omp simd
+#endif
+        for(int i = 0; i < hist_n_bins_cube_; ++i) {
+            sum += hist_[i];
+        }
+
+        if (sum <= 0.0f) {
+            return;
+        }
+
+        float complement_learning_rate = 1.0f - learning_rate;
+        float learning_rate_divide_sum = learning_rate / sum;
+#ifndef _DEBUG
+#pragma omp simd
+#endif
+        for (int i = 0; i < hist_n_bins_cube_; ++i) {
+            hist_[i] = complement_learning_rate * hist_[i] + learning_rate_divide_sum * temp.hist_[i];
+        }
+    }
     
     void HistModality::ssf_init() {
         ssf_lookup_f_.resize(ssf_length);

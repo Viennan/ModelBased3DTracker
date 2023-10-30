@@ -40,6 +40,8 @@ namespace hm {
         Histogram() = default;
         Histogram(const Histogram&) = default;
         Histogram(Histogram&&) = default;
+        Histogram& operator=(const Histogram&) = default;
+        Histogram& operator=(Histogram&&) = default;
 
         explicit Histogram(int n_bins) {
             Setup(n_bins);
@@ -62,6 +64,10 @@ namespace hm {
                   int(color[1] >> n_bits_shift_) * hist_n_bins + 
                   int(color[2] >> n_bits_shift_)] += 1.0f;
         }
+
+        void Normalize();
+
+        void MergeUnnormalized(const Histogram& other, float learning_rate);
 
     private:
         int hist_n_bins; // must be power of 2
@@ -116,7 +122,9 @@ namespace hm {
         SparseViewpointModel<ContourPoint> viewpoint_model;
 
         // parameter and functions for correspondence line
+        std::vector<int> scales;
         std::vector<Line> lines_;
+        void calculateCorrespondenceLines(int scale, int iteration);
 
         // parameters and functions for point filtering, usually used for removing outliers
 
