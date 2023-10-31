@@ -77,6 +77,8 @@ namespace hm {
         std::vector<float> hist_;
     };
 
+    using PointFilter = std::function<void(const Viewpoint<ContourPoint>&, std::vector<int>&)>;
+
     class HistModality {
     public:
         HistModality() = default;
@@ -96,6 +98,7 @@ namespace hm {
         Eigen::Matrix<float, 2, 3> body2camera_rotation_xy_;
         Intrinsics intrinsics_;
         // end
+        void camera_update_params();
 
         // parameters and functions for smoothed step function (ssf)
         float ssf_amptitue;
@@ -123,8 +126,10 @@ namespace hm {
 
         // parameter and functions for correspondence line
         std::vector<int> scales;
+        std::vector<PointFilter> point_filters;
         std::vector<Line> lines_;
-        void calculateCorrespondenceLines(int scale, int iteration);
+        void line_search_and_project_centers(); // only search and project center of correspondence lines, do not calculate any distribution of them
+        void line_calculate_correspondence(int scale, int iteration);
 
         // parameters and functions for point filtering, usually used for removing outliers
 

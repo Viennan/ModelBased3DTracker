@@ -27,7 +27,7 @@ struct Camera {
     std::function<cv::Mat()> Normal;
     std::function<cv::Mat()> Color;
     std::function<const Intrinsics&()> Intrinsics;
-    std::function<std::tuple<Transform3fA, Transform3fA, Transform3fA>()> MVP;
+    std::function<std::tuple<Transform3fA, Transform3fA>()> ModelViewMatrixes;
 };
 
 }

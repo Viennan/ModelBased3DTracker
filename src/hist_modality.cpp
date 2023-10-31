@@ -69,6 +69,14 @@ namespace hm{
         }
     }
 
+    void HistModality::camera_update_params() {
+        auto[m, v] = camera.ModelViewMatrixes();
+        body2camera_ = v * m;
+        body2camera_rotation_ = body2camera_.rotation();
+        body2camera_rotation_xy_ = body2camera_rotation_.block<2, 3>(0, 0);
+        intrinsics_ = camera.Intrinsics();
+    }
+
     void HistModality::hist_setup() {
         hist_temp_f_.Setup(hist_n_bins);
         hist_temp_b_.Setup(hist_n_bins);
@@ -137,6 +145,38 @@ namespace hm{
                 u += u_step;
                 v += v_step;
             }
+        }
+    }
+
+    void HistModality::line_search_and_project_centers() {
+        // get closest viewpoint from sparse viewpoint model
+        const auto& vp = viewpoint_model.GetClosestViewpoint(body2camera_);
+
+        // filter out outliers, usually used for occlusion handling
+        int valid_num = vp.data.size();
+        std::vector<int> mask(vp.data.size(), 1);
+        if (point_filters.size() > 0) {
+            for (const auto& filter : point_filters) {
+                filter(vp, mask);
+            }
+            valid_num = std::count(mask.begin(), mask.end(), 1);
+        }
+
+        // project centers and 2D normals of correspondence lines
+        lines_.resize(valid_num);
+        for (int i = 0, j = 0; i < vp.data.size(); ++i) {
+            if (mask[i] == 0) {
+                continue;
+            }
+            const auto& point = vp.data[i];
+            auto& line = lines_[j];
+            auto center_f_camera = body2camera_ * point.center_f_body;
+            auto normal_f_camera = (body2camera_rotation_xy_ * point.normal_f_body).normalized();
+            line.center_f_camera = center_f_camera;
+            line.center_f_body = point.center_f_body;
+            line.center_uv = PinHoleProject(intrinsics_, center_f_camera);
+            line.normal_uv = Eigen::Vector2f(normal_f_camera.x(), normal_f_camera.y());
+            ++j;
         }
     }
 
