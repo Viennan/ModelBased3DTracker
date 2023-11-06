@@ -13,6 +13,14 @@ namespace mb3t {
 
     // Commonly used structs
     
+    // Commonly used helper functions
+    template <typename T>
+    inline auto last_valid(const std::vector<T>& l, size_t idx) {
+        if (idx >= l.size()) {
+            return l.back();
+        }
+        return l[idx];
+    }
 
     // Commonly used mathematical functions
     template <typename T>

@@ -25,14 +25,11 @@ namespace hm {
         Eigen::Vector3f center_f_camera{};
         Eigen::Vector2f center_uv;
         Eigen::Vector2f normal_uv;
-        float measured_depth_offset = 0.0f;
-        float modeled_depth_offset = 0.0f;
-        float continuous_distance = 0.0f;
         float delta_r = 0.0f;
         float normal_component_to_scale = 0.0f;
         std::vector<float> distribution{};
         float mean = 0.0f;
-        float measured_variance = 0.0f;
+        float variance = 0.0f;
     };
 
     class Histogram {
@@ -63,6 +60,12 @@ namespace hm {
             hist_[int(color[0] >> n_bits_shift_) * hist_n_bins_square_ + 
                   int(color[1] >> n_bits_shift_) * hist_n_bins + 
                   int(color[2] >> n_bits_shift_)] += 1.0f;
+        }
+
+        float operator() (const cv::Vec3b& color) const {
+            return hist_[int(color[0] >> n_bits_shift_) * hist_n_bins_square_ + 
+                         int(color[1] >> n_bits_shift_) * hist_n_bins + 
+                         int(color[2] >> n_bits_shift_)];
         }
 
         void Normalize();
@@ -125,14 +128,31 @@ namespace hm {
         SparseViewpointModel<ContourPoint> viewpoint_model;
 
         // parameter and functions for correspondence line
-        std::vector<int> scales;
-        std::vector<PointFilter> point_filters;
-        std::vector<Line> lines_;
+        // the following params block should be set before modality is used
+        std::vector<int> line_scales;
+        int line_distribution_length;
+
+        int line_length_in_segment_;
+        int line_distribution_length_minus_1_half_;
+        int line_distribution_length_plus_1_half_;
+        float min_expected_variance_;
+        void line_init_distribution_params(); // this function will init the beyond param block before modality start
+
+        int line_scale_;
+        float line_fscale_;
+        int line_length_;
+        int line_length_minus_1_;
+        int line_length_minus_1_half_;
+        void line_init_scale_dependent_params(int scale_idx); // this function will init the beyond param block before calculating correspondence lines
+
+        std::vector<Line> lines_; // correspondence lines
         void line_search_and_project_centers(); // only search and project center of correspondence lines, do not calculate any distribution of them
-        void line_calculate_correspondence(int scale, int iteration);
+        bool line_calculate_segment_color_distribution(const cv::Mat& image, Line& line, std::vector<float>& segment_f_distribution, std::vector<float>& segment_b_distribution);
+        void line_calculate_segment_distribution(Line& line, const std::vector<float>& segment_f_distribution, const std::vector<float>& segment_b_distribution);
+        void line_calculate_correspondence(int scale_idx);
 
         // parameters and functions for point filtering, usually used for removing outliers
-
+        std::vector<PointFilter> line_point_filters;
     };
 
 }
