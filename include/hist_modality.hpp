@@ -30,6 +30,7 @@ namespace hm {
         std::vector<float> distribution{};
         float mean = 0.0f;
         float variance = 0.0f;
+        float reciprocal_variance = 0.0f;
     };
 
     class Histogram {
@@ -146,6 +147,8 @@ namespace hm {
         void line_init_scale_dependent_params(int scale_idx); // this function will init the beyond param block before calculating correspondence lines
 
         std::vector<Line> lines_; // correspondence lines
+        std::vector<float> line_normalized_reciprocal_variances_; // used for weighting gradient and hessian of each correspondence line
+        float line_average_variance_;
         void line_search_and_project_centers(); // only search and project center of correspondence lines, do not calculate any distribution of them
         bool line_calculate_segment_color_distribution(const cv::Mat& image, Line& line, std::vector<float>& segment_f_distribution, std::vector<float>& segment_b_distribution);
         void line_calculate_segment_distribution(Line& line, const std::vector<float>& segment_f_distribution, const std::vector<float>& segment_b_distribution);
@@ -153,6 +156,13 @@ namespace hm {
 
         // parameters and functions for point filtering, usually used for removing outliers
         std::vector<PointFilter> line_point_filters;
+
+        // parameters and functions for non-linear optimization
+        int opt_n_global_iteration;
+        Eigen::Matrix<float, 6, 1> gradient_;
+        Eigen::Matrix<float, 6, 6> hessian_;
+        float mod_variance_in_pixel_; // for weighting between different modalities
+        void optimize(int iteration);
     };
 
 }

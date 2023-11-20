@@ -151,7 +151,7 @@ namespace hm{
 
     void HistModality::line_init_distribution_params() {
         line_distribution_length_minus_1_half_ = float(line_distribution_length - 1) * 0.5f;
-        line_length_in_segment_ = ssf_length + line_distribution_length; - 1;
+        line_length_in_segment_ = ssf_length + line_distribution_length - 1;
         line_distribution_length_plus_1_half_ = float(line_distribution_length + 1) * 0.5f;
         auto min_expected_variance_laplace = 1.0f / (2.0f * powf(std::atanhf(2.0f * ssf_amptitue), 2.0f));
         auto min_expected_variance_gaussian = ssf_slope;
@@ -311,6 +311,7 @@ namespace hm{
         }
         line.mean = mean_from_begin - line_distribution_length_minus_1_half_;
         line.variance = std::max(variance_from_begin, min_expected_variance_);
+        line.reciprocal_variance = 1.0f / line.variance;
     }
 
     void HistModality::line_calculate_correspondence(int scale_idx) {
@@ -342,6 +343,72 @@ namespace hm{
             }
             lines_ = std::move(lines_temp);
         }
+        // calculate normalized reciprocal variance for weighting
+        float sum_reciprocal_variance = 0.0f;
+        for (const auto& line : lines_) {
+            sum_reciprocal_variance += line.reciprocal_variance;
+        }
+        float recip_sum_reciprocal_variance = 1.0f / sum_reciprocal_variance;
+        line_normalized_reciprocal_variances_.resize(lines_.size());
+        for (size_t i=0; i<lines_.size(); ++i) {
+            line_normalized_reciprocal_variances_[i] = lines_[i].reciprocal_variance * recip_sum_reciprocal_variance;
+        }
+        // calculate average variance
+        line_average_variance_ = std::accumulate(lines_.cbegin(), lines_.cend(), 0.0f, [](const Line& line) {
+            return line.variance;
+        }) / lines_.size();
+    }
+
+    void HistModality::optimize(int iteration) {
+        camera_update_params();
+
+        gradient_.setZero();
+        hessian_.setZero();
+        for (size_t i=0;i<lines_.size();++i) {
+            const auto& line = lines_[i];
+            auto center_f_camera = body2camera_ * line.center_f_body;
+            float fu_z = intrinsics_.fu / center_f_camera.z();
+            float fv_z = intrinsics_.fv / center_f_camera.z();
+            float xfu_z = center_f_camera.x() * fu_z;
+            float yfv_z = center_f_camera.y() * fv_z;
+            auto center_uv = Eigen::Vector2f{xfu_z + intrinsics_.ppu, yfv_z + intrinsics_.ppv};
+            // calculate delta_cs           
+            float delta_cs = (line.normal_uv.x() * (xfu_z + intrinsics_.ppu - line.center_uv.x()) +
+                              line.normal_uv.y() * (yfv_z + intrinsics_.ppv - line.center_uv.y()) - 
+                              line.delta_r) * line.normal_component_to_scale;
+            
+            // calculate gradient of loglikihood with respect to delta_cs
+            float dloglikelihood_ddelta_cs;
+            if (iteration < opt_n_global_iteration) {
+                // treat the distribution as a perfect gaussian distribution in global optimization
+                dloglikelihood_ddelta_cs = (line.mean -delta_cs) * line.reciprocal_variance;
+            } else {
+                // local optimization
+                int dist_idx_upper = int(delta_cs + line_distribution_length_plus_1_half_);
+                int dist_idx_lower = dist_idx_upper - 1;
+                if (dist_idx_lower < 0 || dist_idx_upper >= line_distribution_length) {
+                    dloglikelihood_ddelta_cs = (line.mean - delta_cs) * line.reciprocal_variance;
+                } else {
+                    dloglikelihood_ddelta_cs = std::log(line.distribution[dist_idx_upper]) - std::log(line.distribution[dist_idx_lower]);
+                }
+            }
+
+            // calculate jacobian matrix of delta_cs with respect to body pose variations in body frame.
+            Eigen::RowVector3f ddelta_cs_dcenter{
+                line.normal_component_to_scale * fu_z * line.normal_uv.x(),
+                line.normal_component_to_scale * fv_z * line.normal_uv.y(),
+                line.normal_component_to_scale * (-line.normal_uv.x() * xfu_z - line.normal_uv.y() * yfv_z) / center_f_camera.z()
+            };
+            Eigen::RowVector3f ddelta_cs_translation = ddelta_cs_dcenter * body2camera_rotation_;
+            Eigen::Matrix<float, 1, 6> ddelta_cs_dtheta;
+            ddelta_cs_dtheta << line.center_f_body.transpose().cross(ddelta_cs_translation), ddelta_cs_translation;
+
+            // calculate gradient and hessian of loglikelihood with body pose variations in body frame.
+            gradient_ += line_normalized_reciprocal_variances_[i] * dloglikelihood_ddelta_cs * ddelta_cs_dtheta.transpose();
+            hessian_ += line_normalized_reciprocal_variances_[i] * line.reciprocal_variance * ddelta_cs_dtheta.transpose() * ddelta_cs_dtheta;
+        }
+        // caculate weight of the modality
+        mod_variance_in_pixel_ = line_average_variance_ * line_scale_ * line_scale_;
     }
 
 }
