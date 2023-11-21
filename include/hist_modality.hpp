@@ -148,8 +148,8 @@ namespace hm {
 
         std::vector<Line> lines_; // correspondence lines
         std::vector<float> line_normalized_reciprocal_variances_; // used for weighting gradient and hessian of each correspondence line
-        float line_average_variance_;
-        void line_search_and_project_centers(); // only search and project center of correspondence lines, do not calculate any distribution of them
+        float line_average_variance_in_meter_;
+        void line_search_and_project_centers(const Viewpoint<ContourPoint>&); // only search and project center of correspondence lines, do not calculate any distribution of them
         bool line_calculate_segment_color_distribution(const cv::Mat& image, Line& line, std::vector<float>& segment_f_distribution, std::vector<float>& segment_b_distribution);
         void line_calculate_segment_distribution(Line& line, const std::vector<float>& segment_f_distribution, const std::vector<float>& segment_b_distribution);
         void line_calculate_correspondence(int scale_idx);
@@ -161,8 +161,9 @@ namespace hm {
         int opt_n_global_iteration;
         Eigen::Matrix<float, 6, 1> gradient_;
         Eigen::Matrix<float, 6, 6> hessian_;
-        float mod_variance_in_pixel_; // for weighting between different modalities
         void optimize(int iteration);
+        void update_posteria();
+        void init_posteria();
     };
 
 }

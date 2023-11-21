@@ -83,6 +83,8 @@ namespace hm{
         hist_temp_b_.Setup(hist_n_bins);
         hist_f_.Setup(hist_n_bins);
         hist_b_.Setup(hist_n_bins);
+        hist_f_.Init();
+        hist_b_.Init();
     }
 
     void HistModality::hist_update_temp(const Viewpoint<ContourPoint>& points) {
@@ -166,10 +168,7 @@ namespace hm{
         line_length_minus_1_half_ = float(line_length_ - 1) * 0.5f;
     }
 
-    void HistModality::line_search_and_project_centers() {
-        // get closest viewpoint from sparse viewpoint model
-        const auto& vp = viewpoint_model.GetClosestViewpoint(body2camera_);
-
+    void HistModality::line_search_and_project_centers(const Viewpoint<ContourPoint>& vp) {
         // filter out outliers, usually used for occlusion handling
         int valid_num = vp.data.size();
         std::vector<int> mask(vp.data.size(), 1);
@@ -317,7 +316,8 @@ namespace hm{
     void HistModality::line_calculate_correspondence(int scale_idx) {
         camera_update_params();
         line_init_scale_dependent_params(scale_idx);
-        line_search_and_project_centers();
+        const auto& vp = viewpoint_model.GetClosestViewpoint(body2camera_);
+        line_search_and_project_centers(vp);
         std::vector<float> segment_f_distribution(line_length_in_segment_);
         std::vector<float> segment_b_distribution(line_length_in_segment_);
         auto image = camera.Color();
@@ -354,8 +354,9 @@ namespace hm{
             line_normalized_reciprocal_variances_[i] = lines_[i].reciprocal_variance * recip_sum_reciprocal_variance;
         }
         // calculate average variance
-        line_average_variance_ = std::accumulate(lines_.cbegin(), lines_.cend(), 0.0f, [](const Line& line) {
-            return line.variance;
+        float vw = line_fscale_ / intrinsics_.fu; 
+        line_average_variance_in_meter_ = std::accumulate(lines_.cbegin(), lines_.cend(), 0.0f, [vw](const Line& line) {
+            return line.variance * square(line.center_f_camera.z() * vw);
         }) / lines_.size();
     }
 
@@ -407,8 +408,27 @@ namespace hm{
             gradient_ += line_normalized_reciprocal_variances_[i] * dloglikelihood_ddelta_cs * ddelta_cs_dtheta.transpose();
             hessian_ += line_normalized_reciprocal_variances_[i] * line.reciprocal_variance * ddelta_cs_dtheta.transpose() * ddelta_cs_dtheta;
         }
-        // caculate weight of the modality
-        mod_variance_in_pixel_ = line_average_variance_ * line_scale_ * line_scale_;
+        hessian_ = hessian_.selfadjointView<Eigen::Lower>();
+    }
+
+    void HistModality::update_posteria() {
+        camera_update_params();
+        const auto& vp = viewpoint_model.GetClosestViewpoint(body2camera_);
+        line_search_and_project_centers(vp);
+        hist_update_temp(vp);
+        hist_f_.MergeUnnormalized(hist_temp_f_, hist_learning_rate_f);
+        hist_b_.MergeUnnormalized(hist_temp_b_, hist_learning_rate_b);
+    }
+
+    void HistModality::init_posteria() {
+        camera_update_params();
+        const auto& vp = viewpoint_model.GetClosestViewpoint(body2camera_);
+        line_search_and_project_centers(vp);
+        hist_update_temp(vp);
+        hist_f_ = hist_temp_f_;
+        hist_f_.Normalize();
+        hist_b_ = hist_temp_b_;
+        hist_b_.Normalize();
     }
 
 }
