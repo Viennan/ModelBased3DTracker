@@ -32,6 +32,13 @@ namespace mb3t {
     inline T square(T value) {
         return value * value;
     }
+
+    inline Eigen::Matrix3f Vector2Skewsymmetric(const Eigen::Vector3f &vector) {
+        Eigen::Matrix3f skew_symmetric;
+        skew_symmetric << 0.0f, -vector(2), vector(1), vector(2), 0.0f, -vector(0),
+            -vector(1), vector(0), 0.0f;
+        return skew_symmetric;
+    }
 }
 
 #endif
